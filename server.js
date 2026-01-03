@@ -18,7 +18,10 @@ const app = express();
 
 // 1. CORS - Allows your React app (different port) to communicate with this server
 // Without this, browser blocks requests from localhost:3000 to localhost:5000
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 
 // 2. JSON Parser - Converts incoming JSON data to JavaScript objects
 // When React sends { "companyName": "Google" }, this makes it usable
