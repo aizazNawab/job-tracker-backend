@@ -18,10 +18,31 @@ const app = express();
 
 // 1. CORS - Allows your React app (different port) to communicate with this server
 // Without this, browser blocks requests from localhost:3000 to localhost:5000
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://job-tracker-frontend.vercel.app',
+      'https://ob-tracker-frontend.vercel.app', // Add this if it's a typo
+      process.env.FRONTEND_URL
+    ].filter(Boolean); // Remove undefined values
+
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 
 // 2. JSON Parser - Converts incoming JSON data to JavaScript objects
 // When React sends { "companyName": "Google" }, this makes it usable

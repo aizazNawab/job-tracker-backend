@@ -1,45 +1,35 @@
-const nodemailer = require('nodemailer');
+// emailService.js
+const { Resend } = require('resend'); // CommonJS import
 
-// Create transporter
-// For production, use real SMTP credentials
-// For development, you can use Gmail or other services
-const createTransporter = () => {
-  // If SMTP credentials are not configured, return null
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    return null;
-  }
-
-  // If using Gmail, you need to:
-  // 1. Enable "Less secure app access" or use App Password
-  // 2. Or use OAuth2
-
-  // For now, using a simple SMTP setup
-  // You'll need to configure these in .env file
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-};
+// Initialize Resend client
+let resend;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
 
 exports.sendOTPEmail = async (email, otp) => {
   try {
-    const transporter = createTransporter();
-
-    // If transporter is not configured, return error
-    if (!transporter) {
+    // Check if Resend API key is configured
+    if (!process.env.RESEND_API_KEY) {
       return {
         success: false,
-        error: 'Email service not configured. Please set SMTP_USER and SMTP_PASS in .env file'
+        error: 'Email service not configured. Please set RESEND_API_KEY in .env'
       };
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    // Initialize Resend if not already initialized
+    if (!resend) {
+      resend = new Resend(process.env.RESEND_API_KEY);
+    }
+
+    // Resend email configuration
+    // Option 1: Use onboarding@resend.dev (works without domain verification - for testing)
+    // Option 2: Use your verified domain (for production - e.g., noreply@yourdomain.com)
+   
+const fromEmail = process.env.RESEND_FROM || 'noreply@arbimotion.com';
+
+    const response = await resend.emails.send({
+      from: fromEmail,
       to: email,
       subject: 'Verify Your Email - Job Application Tracker',
       html: `
@@ -56,14 +46,21 @@ exports.sendOTPEmail = async (email, otp) => {
           <p style="color: #6B7280; font-size: 12px;">Job Application Tracker</p>
         </div>
       `
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent: ', info.messageId);
-    return { success: true };
+    console.log('✅ Email sent successfully to:', email);
+    console.log('📧 Resend response:', JSON.stringify(response, null, 2));
+
+    // Check if response has error
+    if (response.error) {
+      console.error('❌ Resend API error:', response.error);
+      return { success: false, error: response.error.message || 'Email sending failed' };
+    }
+
+    return { success: true, messageId: response.data?.id };
   } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, error: error.message };
+    console.error('Failed to send email:', error.message || error);
+    return { success: false, error: error.message || 'Email sending failed' };
   }
 };
 

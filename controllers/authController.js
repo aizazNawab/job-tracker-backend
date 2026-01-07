@@ -53,29 +53,37 @@ exports.sendOTP = async (req, res) => {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
     });
 
-    // Send OTP via email
-    const emailResult = await sendOTPEmail(email, otp);
+    // Send OTP via email (with timeout)
+    let emailResult;
+    try {
+      // Set a timeout for email sending (15 seconds)
+      const emailPromise = sendOTPEmail(email, otp);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Email sending timeout')), 15000)
+      );
 
+      emailResult = await Promise.race([emailPromise, timeoutPromise]);
+    } catch (error) {
+      console.error('Email sending error or timeout:', error.message);
+      emailResult = { success: false, error: error.message };
+    }
+
+    // If email fails, return error - don't expose OTP in production
     if (!emailResult.success) {
-      // If email fails, still return success but log the error
-      // In production, you might want to handle this differently
-      console.error('Failed to send email:', emailResult.error);
-      
-      // For development, you can return the OTP in the response
-      // Remove this in production!
-      if (process.env.NODE_ENV === 'development') {
-        return res.status(200).json({
-          success: true,
-          message: 'OTP generated (check console for development)',
-          otp: otp // Only in development!
-        });
-      }
-      
+      console.error('❌ Failed to send email:', emailResult.error);
+      console.error('📧 Email details - To:', email, 'OTP:', otp);
+
+      // Delete the OTP since we couldn't send it
+      await OTP.deleteOne({ email, otp });
+
       return res.status(500).json({
         success: false,
-        message: 'Failed to send verification email. Please try again.'
+        message: 'Failed to send verification email. Please check your email service configuration or try again later.',
+        error: process.env.NODE_ENV === 'development' ? emailResult.error : undefined
       });
     }
+
+    console.log('✅ OTP email sent successfully to:', email);
 
     res.status(200).json({
       success: true,
