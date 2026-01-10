@@ -74,6 +74,10 @@ const applicationSchema = new mongoose.Schema({
   deadline: {
     type: Date
   },
+  // Interview date and time
+interviewDateTime: {
+  type: Date
+},
 
   // Additional notes about the application
   notes: {

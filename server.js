@@ -64,7 +64,11 @@ mongoose.connect(process.env.MONGO_URI)
     console.error('❌ MongoDB Connection Error:', error.message);
     process.exit(1); // Exit if database connection fails
   });
+// Import and start cron jobs
+const { startCronJobs } = require('./utils/cronJobs');
 
+// Start cron jobs for reminders
+startCronJobs();
 // ============================================
 // TEST ROUTE
 // ============================================
